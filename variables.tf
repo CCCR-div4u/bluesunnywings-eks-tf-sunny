@@ -34,11 +34,11 @@ variable "node_groups" {
   default = {
     main = {
       name           = "main"
-      instance_types = ["t3.small"]
+      instance_types = ["t3.medium"]
 
       min_size     = 1
       max_size     = 3
-      desired_size = 1
+      desired_size = 2
 
       disk_size     = 20
       ami_type      = "AL2_x86_64"
@@ -50,12 +50,6 @@ variable "node_groups" {
       }
     }
   }
-}
-
-variable "enable_acm_validation" {
-  description = "Enable ACM certificate validation (can cause timeout)"
-  type        = bool
-  default     = false
 }
 
 variable "tags" {

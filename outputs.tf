@@ -70,17 +70,17 @@ output "public_subnets" {
 
 output "hosted_zone_id" {
   description = "Route53 hosted zone ID"
-  value       = aws_route53_zone.main.zone_id
+  value       = data.aws_route53_zone.main.zone_id
 }
 
 output "hosted_zone_name_servers" {
   description = "Route53 hosted zone name servers"
-  value       = aws_route53_zone.main.name_servers
+  value       = data.aws_route53_zone.main.name_servers
 }
 
 output "certificate_arn" {
   description = "ACM certificate ARN"
-  value       = aws_acm_certificate.main.arn
+  value       = data.aws_acm_certificate.main.arn
 }
 
 output "aws_load_balancer_controller_role_arn" {

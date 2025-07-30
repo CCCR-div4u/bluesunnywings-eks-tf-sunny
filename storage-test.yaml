@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: java-app-storage
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  # storageClassName을 명시하지 않으면 기본 StorageClass(gp3) 사용
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-sample-app
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: java-sample-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: java-sample-app
+    spec:
+      containers:
+      - args:
+        - -jar
+        - /app/app.jar
+        command:
+        - java
+        image: hnyeong/devsecops-pipeline-test:latest
+        imagePullPolicy: IfNotPresent
+        name: java-sample
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        volumeMounts:
+        - name: app-storage
+          mountPath: /app/data
+        env:
+        - name: DATA_PATH
+          value: "/app/data"
+      volumes:
+      - name: app-storage
+        persistentVolumeClaim:
+          claimName: java-app-storage
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: java-sample-app-svc
+  name: java-sample-app-svc
+spec:
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: java-sample-app
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: java-sample-app-ing
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+spec:
+  ingressClassName: alb
+  rules:
+    - host: www.bluesunnywings.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: java-sample-app-svc
+                port:
+                  number: 8080

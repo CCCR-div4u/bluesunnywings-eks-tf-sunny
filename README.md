@@ -18,8 +18,8 @@
 - **OIDC Provider**: IRSA(IAM Role for Service Account) 지원
 
 ### 워커 노드
-- **인스턴스 타입**: t3.small
-- **Auto Scaling**: 최소 1대, 원하는 1대, 최대 3대
+- **인스턴스 타입**: t3.medium
+- **Auto Scaling**: 최소 1대, 원하는 2대, 최대 3대
 - **스토리지**: GP3 20GB
 - **배치**: 프라이빗 서브넷만 사용
 
@@ -46,9 +46,9 @@
 - ✅ **External DNS**: Route53 자동 DNS 관리
 
 ### 4. 도메인 & 인증서
-- ✅ **Route53 호스팅 존**: bluesunnywings.com
-- ✅ **ACM 인증서**: *.bluesunnywings.com (DNS 자동 검증)
-- ✅ **자동 DNS 검증**: Route53 레코드 자동 생성
+- ✅ **Route53 호스팅 존**: bluesunnywings.com (기존 리소스 사용)
+- ✅ **ACM 인증서**: *.bluesunnywings.com (기존 리소스 사용)
+- ✅ **리소스 보존**: destroy 시 호스팅 존과 인증서 삭제 안됨
 
 ### 5. IAM 역할 (IRSA)
 - ✅ **EKS 클러스터 서비스 역할**
@@ -65,9 +65,28 @@
 ## 🚀 배포 방법
 
 ### 사전 요구사항
-- AWS CLI 구성 완료
-- Terraform >= 1.0 설치
+- **AWS CLI** 구성 완료
+- **Terraform >= 1.0** 설치
+- **kubectl** 설치 (Kubernetes 클러스터 접근용)
+- **Helm** 설치 (Helm 차트 배포용)
 - 적절한 AWS IAM 권한
+
+#### 도구 설치 (Ubuntu)
+```bash
+# kubectl 설치
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+# Helm 설치
+curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+sudo apt-get update
+sudo apt-get install helm
+
+# 설치 확인
+kubectl version --client
+helm version
+```
 
 ### 1. 초기화
 ```bash
@@ -140,9 +159,9 @@ kubectl get storageclass
 
 ## ⚠️ 주의사항
 
-1. **도메인 검증**: 첫 배포 시 ACM 인증서 DNS 검증에 시간이 소요될 수 있습니다
-   - ACM 인증서 검증에 10분 타임아웃 설정으로 무한 대기 방지
-   - 검증 실패 시 `Ctrl+C`로 안전하게 중단 후 재시도 가능
+1. **기존 리소스 요구사항**: 배포 전에 다음 리소스가 존재해야 합니다
+   - Route53 호스팅 존: bluesunnywings.com
+   - ACM 인증서: *.bluesunnywings.com (ISSUED 상태)
 2. **배포 시간**: 전체 스택 배포에 15-20분 정도 소요됩니다
 3. **비용**: NAT Gateway, EKS 클러스터, EC2 인스턴스 등의 비용이 발생합니다
 4. **권한**: EKS, VPC, Route53, ACM 등의 AWS 서비스 권한이 필요합니다

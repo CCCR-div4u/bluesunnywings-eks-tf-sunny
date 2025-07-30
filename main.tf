@@ -282,55 +282,16 @@ resource "aws_eks_node_group" "main" {
   tags = var.tags
 }
 
-# Route53 Hosted Zone
-resource "aws_route53_zone" "main" {
-  name = var.domain_name
-
-  tags = merge(var.tags, {
-    Name = var.domain_name
-  })
+# Use existing Route53 Hosted Zone
+data "aws_route53_zone" "main" {
+  name         = var.domain_name
+  private_zone = false
 }
 
-# ACM Certificate
-resource "aws_acm_certificate" "main" {
-  domain_name               = var.domain_name
-  subject_alternative_names = ["*.${var.domain_name}"]
-  validation_method         = "DNS"
-
-  lifecycle {
-    create_before_destroy = true
-  }
-
-  tags = var.tags
-}
-
-resource "aws_route53_record" "cert_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.main.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  }
-
-  allow_overwrite = true
-  name            = each.value.name
-  records         = [each.value.record]
-  ttl             = 60
-  type            = each.value.type
-  zone_id         = aws_route53_zone.main.zone_id
-}
-
-# ACM Certificate Validation (optional - can be done manually)
-resource "aws_acm_certificate_validation" "main" {
-  count = var.enable_acm_validation ? 1 : 0
-  
-  certificate_arn         = aws_acm_certificate.main.arn
-  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
-  
-  timeouts {
-    create = "10m"
-  }
+# Use existing ACM Certificate
+data "aws_acm_certificate" "main" {
+  domain   = var.domain_name
+  statuses = ["ISSUED"]
 }
 
 # Configure Kubernetes and Helm providers after cluster creation
@@ -426,7 +387,7 @@ module "external_dns_irsa_role" {
 
   role_name                     = "${var.cluster_name}-external-dns"
   attach_external_dns_policy    = true
-  external_dns_hosted_zone_arns = ["arn:aws:route53:::hostedzone/${aws_route53_zone.main.zone_id}"]
+  external_dns_hosted_zone_arns = ["arn:aws:route53:::hostedzone/${data.aws_route53_zone.main.zone_id}"]
 
   oidc_providers = {
     ex = {
@@ -522,7 +483,7 @@ resource "helm_release" "external_dns" {
 
   set {
     name  = "txtOwnerId"
-    value = aws_route53_zone.main.zone_id
+    value = data.aws_route53_zone.main.zone_id
   }
 
   set {
