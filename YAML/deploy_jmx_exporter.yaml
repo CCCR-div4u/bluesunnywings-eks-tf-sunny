@@ -1,0 +1,47 @@
+# $ vi deploy.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-sample-app-jmx
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: java-sample-app
+  template:
+    metadata:
+      labels:
+        app: java-sample-app
+    spec:
+      initContainers:
+      - name: download-jmx-exporter
+        image: busybox:1.28
+        command: ['wget', '-O', '/opt/jmx_exporter/jmx_prometheus_javaagent-0.19.0.jar', 'https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.19.0/jmx_prometheus_javaagent-0.19.0.jar']
+        volumeMounts:
+        - name: jmx-exporter
+          mountPath: /opt/jmx_exporter
+      containers:
+      - name: java-sample
+        image: hnyeong/devsecops-pipeline-test:5aef18481931ecf89995dca79a4ecc48c8032165
+        ports:
+          - containerPort: 8080
+          - containerPort: 7000 # JMX Exporter
+        volumeMounts:
+        - name: jmx-exporter
+          mountPath: /opt/jmx_exporter
+        - name: jmx-config
+          mountPath: /opt/jmx_exporter/config.yaml
+          subPath: config.yaml
+        command: ["java"]
+        args:
+          - "-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-0.19.0.jar=7000:/opt/jmx_exporter/config.yaml"
+          - "-jar"
+          - "/app/app.jar"
+      volumes:
+      - name: jmx-exporter
+        emptyDir: {}
+        # 실제 JMX Exporter jar파일을 이미지에 미리 넣는 게 best practice
+      - name: jmx-config
+        configMap:
+          name: jmx-config

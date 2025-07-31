@@ -1,0 +1,30 @@
+# $ vi values.yaml
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+      - job_name: 'jmx-exporter'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - monitoring
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: java-sample-app.*
+          - source_labels: [__address__]
+            target_label: __address__
+            replacement: $1:7000
+      - job_name: 'jmx-exporter-default'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - default
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: java-sample-app.*
+          - source_labels: [__address__]
+            target_label: __address__
+            replacement: $1:7000

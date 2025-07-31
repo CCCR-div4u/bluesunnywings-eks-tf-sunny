@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: java-app-storage
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  # storageClassName을 명시하지 않으면 기본 StorageClass(gp3) 사용
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-sample-app
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: java-sample-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: java-sample-app
+    spec:
+      initContainers:
+      - name: download-jmx-exporter
+        image: busybox:1.28
+        command: ['wget', '-O', '/opt/jmx_exporter/jmx_prometheus_javaagent-0.19.0.jar', 'https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.19.0/jmx_prometheus_javaagent-0.19.0.jar']
+        volumeMounts:
+        - name: jmx-exporter
+          mountPath: /opt/jmx_exporter
+      containers:
+      - args:
+        - "-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-0.19.0.jar=7000:/opt/jmx_exporter/config.yaml"
+        - -jar
+        - /app/app.jar
+        command:
+        - java
+        image: hnyeong/devsecops-pipeline-test:latest
+        imagePullPolicy: IfNotPresent
+        name: java-sample
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        - containerPort: 7000
+          protocol: TCP
+        volumeMounts:
+        - name: app-storage
+          mountPath: /app/data
+        - name: jmx-exporter
+          mountPath: /opt/jmx_exporter
+        - name: jmx-config
+          mountPath: /opt/jmx_exporter/config.yaml
+          subPath: config.yaml
+        env:
+        - name: DATA_PATH
+          value: "/app/data"
+      volumes:
+      - name: app-storage
+        persistentVolumeClaim:
+          claimName: java-app-storage
+      - name: jmx-exporter
+        emptyDir: {}
+      - name: jmx-config
+        configMap:
+          name: jmx-config
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: java-sample-app-svc
+  name: java-sample-app-svc
+spec:
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: java-sample-app
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: java-sample-app-ing
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80,"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:219967435143:certificate/5d011410-cf0a-4412-94fd-9482bed70ef8
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+spec:
+  ingressClassName: alb
+  rules:
+    - host: www.bluesunnywings.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: java-sample-app-svc
+                port:
+                  number: 8080

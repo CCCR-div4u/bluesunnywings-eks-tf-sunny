@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jmx-config
+  namespace: default
+data:
+  config.yaml: |
+    startDelaySeconds: 0
+    ssl: false
+    #hostPort: 0
+    rules:
+      - pattern: ".*"

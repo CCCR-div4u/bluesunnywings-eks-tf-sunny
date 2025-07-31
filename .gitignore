@@ -32,3 +32,5 @@ terraform.rc
 q-dev-chat-2025-07-29.md
 
 *tf*.log
+
+log/*

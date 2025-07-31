@@ -109,8 +109,17 @@ terraform plan
 
 ### 4. 배포 실행
 ```bash
+# 일반 실행
 terraform apply
+
+# 백그라운드 실행 (권장)
+nohup terraform apply -auto-approve > ./log/"$(date +'%y%m%d_%H%M').tf.log" 2>&1 &
 ```
+
+**백그라운드 실행 시:**
+- 터미널 종료해도 배포 계속 진행
+- 로그는 `./log/` 디렉터리에 자동 저장
+- `tail -f ./log/최신로그파일.log`로 진행 상황 확인
 
 ### 5. kubectl 설정
 ```bash
@@ -168,9 +177,25 @@ kubectl get storageclass
 
 ## 🧹 리소스 정리
 
+### 사전 준비
 ```bash
-terraform destroy
+# 삭제 계획 확인
+terraform plan -destroy
 ```
+
+### 정리 실행
+```bash
+# 일반 실행
+terraform destroy
+
+# 백그라운드 실행 (권장)
+nohup terraform destroy -auto-approve > ./log/"$(date +'%y%m%d_%H%M').tf_destroy.log" 2>&1 &
+```
+
+**백그라운드 실행 시:**
+- 터미널 종료해도 삭제 계속 진행
+- 로그는 `./log/` 디렉터리에 자동 저장
+- `tail -f ./log/최신로그파일.log`로 진행 상황 확인
 
 ## 📁 파일 구조
 
