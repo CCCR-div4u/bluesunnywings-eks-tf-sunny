@@ -19,7 +19,7 @@
 
 ### 워커 노드
 - **인스턴스 타입**: t3.medium
-- **Auto Scaling**: 최소 1대, 원하는 2대, 최대 3대
+- **Auto Scaling**: 최소 1대, 원하는 2대, 최대 4대
 - **스토리지**: GP3 20GB
 - **배치**: 프라이빗 서브넷만 사용
 
@@ -44,6 +44,7 @@
 - ✅ **Kube Proxy**: 네트워크 프록시
 - ✅ **AWS Load Balancer Controller**: ALB/NLB 지원
 - ✅ **External DNS**: Route53 자동 DNS 관리
+- ✅ **Cluster Autoscaler**: 노드 자동 스케일링
 
 ### 4. 도메인 & 인증서
 - ✅ **Route53 호스팅 존**: bluesunnywings.com (기존 리소스 사용)
@@ -56,6 +57,7 @@
 - ✅ **AWS Load Balancer Controller 역할**
 - ✅ **External DNS 역할** (Route53 권한)
 - ✅ **EBS CSI Driver 역할**
+- ✅ **Cluster Autoscaler 역할** (EC2 Auto Scaling 권한)
 
 ### 6. 스토리지
 - ✅ **GP3 StorageClass** (기본값으로 설정)
@@ -138,6 +140,7 @@ kubectl get pods -A
 ```bash
 kubectl get deployment -n kube-system aws-load-balancer-controller
 kubectl get deployment -n kube-system external-dns
+kubectl get deployment -n kube-system cluster-autoscaler
 ```
 
 ### StorageClass 확인

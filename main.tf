@@ -273,13 +273,17 @@ resource "aws_eks_node_group" "main" {
 
   labels = each.value.k8s_labels
 
+  # Cluster Autoscaler를 위한 태그 추가
+  tags = merge(var.tags, {
+    "k8s.io/cluster-autoscaler/enabled" = "true"
+    "k8s.io/cluster-autoscaler/${aws_eks_cluster.main.name}" = "owned"
+  })
+
   depends_on = [
     aws_iam_role_policy_attachment.node_group_AmazonEKSWorkerNodePolicy,
     aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy,
     aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly,
   ]
-
-  tags = var.tags
 }
 
 # Use existing Route53 Hosted Zone
@@ -499,6 +503,74 @@ resource "helm_release" "external_dns" {
   depends_on = [
     aws_eks_node_group.main,
     module.external_dns_irsa_role
+  ]
+}
+
+# Cluster Autoscaler IRSA
+module "cluster_autoscaler_irsa_role" {
+  source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.20"
+
+  role_name                        = "${var.cluster_name}-cluster-autoscaler"
+  attach_cluster_autoscaler_policy = true
+  cluster_autoscaler_cluster_names = [aws_eks_cluster.main.name]
+
+  oidc_providers = {
+    ex = {
+      provider_arn               = aws_iam_openid_connect_provider.cluster.arn
+      namespace_service_accounts = ["kube-system:cluster-autoscaler"]
+    }
+  }
+
+  tags = var.tags
+}
+
+# Cluster Autoscaler
+resource "helm_release" "cluster_autoscaler" {
+  name       = "cluster-autoscaler"
+  repository = "https://kubernetes.github.io/autoscaler"
+  chart      = "cluster-autoscaler"
+  namespace  = "kube-system"
+  version    = "9.29.0"
+
+  set {
+    name  = "autoDiscovery.clusterName"
+    value = aws_eks_cluster.main.name
+  }
+
+  set {
+    name  = "awsRegion"
+    value = data.aws_region.current.name
+  }
+
+  set {
+    name  = "rbac.serviceAccount.create"
+    value = "true"
+  }
+
+  set {
+    name  = "rbac.serviceAccount.name"
+    value = "cluster-autoscaler"
+  }
+
+  set {
+    name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    value = module.cluster_autoscaler_irsa_role.iam_role_arn
+  }
+
+  set {
+    name  = "extraArgs.scale-down-delay-after-add"
+    value = "10m"
+  }
+
+  set {
+    name  = "extraArgs.scale-down-unneeded-time"
+    value = "10m"
+  }
+
+  depends_on = [
+    aws_eks_node_group.main,
+    module.cluster_autoscaler_irsa_role
   ]
 }
 
