@@ -600,7 +600,8 @@ resource "helm_release" "external_dns" {
 
   depends_on = [
     aws_eks_node_group.main,
-    module.external_dns_irsa_role
+    module.external_dns_irsa_role,
+    helm_release.aws_load_balancer_controller
   ]
 }
 
